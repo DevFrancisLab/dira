@@ -6,13 +6,17 @@ import { Overview } from "./components/Overview";
 import { Reports } from "./components/Reports";
 import { RiskMap } from "./components/RiskMap";
 import { Sidebar } from "./components/Sidebar";
+import { useAuth } from "./context/AuthContext";
 import { mapController } from "./map/controller";
 import { loadPortfolio } from "./services/api";
 
 export default function App() {
+  const { user, logout } = useAuth();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [page, setPage] = useState("overview");
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
   const [tier, setTier] = useState("common");
   const [assumption, setAssumption] = useState("reference");
   const [selectedId, setSelectedId] = useState(null);
@@ -43,6 +47,18 @@ export default function App() {
     });
   }, []);
 
+  async function signOut() {
+    if (signingOut) return;
+    setSignOutError("");
+    setSigningOut(true);
+    try {
+      await logout();
+    } catch (reason) {
+      setSignOutError(reason.message);
+      setSigningOut(false);
+    }
+  }
+
   const selected = useMemo(() => {
     if (!data || !selectedId) return null;
     return data.buildings.find((building) => building.loc_id === selectedId) || null;
@@ -57,7 +73,14 @@ export default function App() {
 
   return (
     <div className="shell">
-      <Sidebar page={page} onNavigate={setPage} />
+      <Sidebar
+        page={page}
+        onNavigate={setPage}
+        user={user}
+        onSignOut={signOut}
+        signingOut={signingOut}
+        signOutError={signOutError}
+      />
       <main className="main">
         <div className={page === "map" ? "map-layer" : "map-layer idle"}>
           <RiskMap

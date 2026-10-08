@@ -23,6 +23,9 @@ coverage.xml
 # Generated outputs
 outputs/
 
+# Local authentication database
+db.sqlite3
+
 # Frontend packages
 node_modules/
 

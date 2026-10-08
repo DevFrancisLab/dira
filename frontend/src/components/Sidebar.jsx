@@ -6,7 +6,7 @@ const ITEMS = [
   ["reports", "Reports"],
 ];
 
-export function Sidebar({ page, onNavigate }) {
+export function Sidebar({ page, onNavigate, user, onSignOut, signingOut, signOutError }) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -25,10 +25,20 @@ export function Sidebar({ page, onNavigate }) {
           </button>
         ))}
       </nav>
-      <div className="sidebar-foot">
-        <span>Model</span>
-        <strong>Reference</strong>
-        <span>Synthetic portfolio</span>
+      <div className="sidebar-bottom">
+        <div className="sidebar-user">
+          <strong>{user.name}</strong>
+          <span title={user.email}>{user.email}</span>
+          <button type="button" onClick={onSignOut} disabled={signingOut}>
+            {signingOut ? "Signing out..." : "Sign out"}
+          </button>
+          {signOutError ? <em role="alert">{signOutError}</em> : null}
+        </div>
+        <div className="sidebar-foot">
+          <span>Model</span>
+          <strong>Reference</strong>
+          <span>Synthetic portfolio</span>
+        </div>
       </div>
     </aside>
   );

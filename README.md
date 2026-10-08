@@ -64,6 +64,7 @@ Use two terminals. Start the API first, then the interface.
 **API** — http://127.0.0.1:8000
 
 ```powershell
+.\.venv\Scripts\python backend\manage.py migrate
 .\.venv\Scripts\python backend\manage.py runserver 127.0.0.1:8000
 ```
 
@@ -87,6 +88,16 @@ The Vite dev server proxies `/api` to the Django process, so the browser only ne
 | GET | `/api/hotspots/` | Named locations for the map |
 
 `assumption` is one of `reference`, `low`, `high`, or `reference_rcc80`.
+
+Accounts are stored in SQLite (`backend/db.sqlite3`) and authenticated with a Django session. Passwords are hashed. The React app is served from `http://127.0.0.1:5173`; that origin is allowed for CSRF and credentialed requests. Before a state-changing call, `GET /api/auth/csrf/` issues the token to send as `X-CSRFToken`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/auth/csrf/` | Issue the CSRF cookie and token |
+| POST | `/api/auth/register/` | Create an account (`name`, `email`, `password`) |
+| POST | `/api/auth/login/` | Start a session. Email is the identifier |
+| POST | `/api/auth/logout/` | End the current session |
+| GET | `/api/auth/me/` | Return the signed-in user, or 401 |
 
 ## Tests
 
