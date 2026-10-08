@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { useRouter } from "../routing";
 import { AuthScreen } from "./AuthScreen";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function Login() {
   const { login } = useAuth();
-  const { navigate } = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -36,12 +34,7 @@ export function Login() {
   }
 
   return (
-    <AuthScreen
-      title="Welcome back"
-      switchText="Don't have an account?"
-      switchLabel="Create account"
-      onSwitch={() => navigate("/register")}
-    >
+    <AuthScreen title="Sign in" note="Accounts are issued by your administrator.">
       <form className="auth-form" onSubmit={onSubmit} noValidate>
         <label>
           Email

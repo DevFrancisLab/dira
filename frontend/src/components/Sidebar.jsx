@@ -1,3 +1,5 @@
+import { ADMIN_PATH, useRouter } from "../routing";
+
 const ITEMS = [
   ["overview", "Overview"],
   ["map", "Risk Map"],
@@ -7,6 +9,7 @@ const ITEMS = [
 ];
 
 export function Sidebar({ page, onNavigate, user, onSignOut, signingOut, signOutError }) {
+  const { navigate } = useRouter();
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -29,6 +32,11 @@ export function Sidebar({ page, onNavigate, user, onSignOut, signingOut, signOut
         <div className="sidebar-user">
           <strong>{user.name}</strong>
           <span title={user.email}>{user.email}</span>
+          {user.is_staff ? (
+            <button type="button" className="sidebar-admin" onClick={() => navigate(ADMIN_PATH)}>
+              Administration
+            </button>
+          ) : null}
           <button type="button" onClick={onSignOut} disabled={signingOut}>
             {signingOut ? "Signing out..." : "Sign out"}
           </button>

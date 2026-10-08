@@ -2,6 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 const RouteContext = createContext(null);
 
+/** Staff account screen. Not a security boundary; the API still requires a staff session. */
+export const ADMIN_PATH = "/dira-steward";
+
 function normalize(pathname) {
   if (!pathname || pathname === "/") return "/";
   const trimmed = pathname.replace(/\/+$/, "");

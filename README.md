@@ -89,15 +89,26 @@ The Vite dev server proxies `/api` to the Django process, so the browser only ne
 
 `assumption` is one of `reference`, `low`, `high`, or `reference_rcc80`.
 
-Accounts are stored in SQLite (`backend/db.sqlite3`) and authenticated with a Django session. Passwords are hashed. The React app is served from `http://127.0.0.1:5173`; that origin is allowed for CSRF and credentialed requests. Before a state-changing call, `GET /api/auth/csrf/` issues the token to send as `X-CSRFToken`.
+Accounts are stored in SQLite (`backend/db.sqlite3`) and authenticated with a Django session. Passwords are hashed. Public registration is closed. An administrator creates accounts from `/dira-steward`. That address is omitted from the main navigation for ordinary users. Opening it does not grant access: the account APIs still require a signed-in staff session. The React app is served from `http://127.0.0.1:5173`; that origin is allowed for CSRF and credentialed requests. Before a state-changing call, `GET /api/auth/csrf/` issues the token to send as `X-CSRFToken`.
+
+Create the first administrator from the repository root. The command prompts for email, name, and password. The account is staff and can open `/dira-steward`.
+
+```powershell
+.\.venv\Scripts\python backend\manage.py createsuperuser
+```
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/auth/csrf/` | Issue the CSRF cookie and token |
-| POST | `/api/auth/register/` | Create an account (`name`, `email`, `password`) |
+| POST | `/api/auth/register/` | Disabled. Returns 403 |
 | POST | `/api/auth/login/` | Start a session. Email is the identifier |
 | POST | `/api/auth/logout/` | End the current session |
 | GET | `/api/auth/me/` | Return the signed-in user, or 401 |
+| GET | `/api/admin/stats/` | Account counts. Staff only |
+| GET | `/api/admin/users/` | List accounts. Staff only |
+| POST | `/api/admin/users/` | Create an account. Staff only |
+| PATCH | `/api/admin/users/<id>/` | Activate or deactivate an account. Staff only |
+| GET | `/api/admin/audit-log/` | Recent account events. Staff only |
 
 ## Tests
 

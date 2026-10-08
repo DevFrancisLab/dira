@@ -8,6 +8,17 @@ import { mapController } from "../map/controller";
 
 const COLORS = { none: "#94A3B8", low: "#0F766E", mid: "#D97706", high: "#EA580C", severe: "#C8102E" };
 
+const BASEMAPS = {
+  street: {
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; OpenStreetMap",
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
+  },
+};
+
 function displayCuts(losses) {
   const positive = losses.filter((value) => value > 0).sort((a, b) => a - b);
   if (!positive.length) return [Infinity, Infinity, Infinity];
@@ -29,6 +40,10 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
   const markers = useRef(new Map());
   const [query, setQuery] = useState("");
   const [openSearch, setOpenSearch] = useState(false);
+  const [basemap, setBasemap] = useState("street");
+  const basemapRef = useRef(basemap);
+  const baseLayers = useRef(null);
+  basemapRef.current = basemap;
   const byId = useMemo(() => new Map(data.buildings.map((building) => [building.loc_id, building])), [data]);
   const tierMeta = data.tiers.find((item) => item.id === tier);
   const selected = selectedId ? byId.get(selectedId) : null;
@@ -36,10 +51,13 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
   useEffect(() => {
     if (!mapNode.current || mapRef.current) return undefined;
     const map = L.map(mapNode.current, { zoomControl: false, minZoom: 10, maxZoom: 18 });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap",
-      maxZoom: 19,
-    }).addTo(map);
+    const layers = {};
+    for (const [name, source] of Object.entries(BASEMAPS)) {
+      layers[name] = L.tileLayer(source.url, { attribution: source.attribution, maxZoom: 19 });
+    }
+    const initial = basemapRef.current === "satellite" ? layers.satellite : layers.street;
+    initial.addTo(map);
+    baseLayers.current = { ...layers, active: initial };
     for (const building of data.buildings) {
       const marker = L.circleMarker([building.lat, building.lon], {
         radius: 5,
@@ -63,8 +81,20 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
       map.remove();
       mapRef.current = null;
       markers.current.clear();
+      baseLayers.current = null;
     };
   }, [data]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const layers = baseLayers.current;
+    if (!map || !layers) return;
+    const next = basemap === "satellite" ? layers.satellite : layers.street;
+    if (next === layers.active) return;
+    map.removeLayer(layers.active);
+    next.addTo(map);
+    layers.active = next;
+  }, [basemap]);
 
   useEffect(() => {
     if (!visible || !mapRef.current) return;
@@ -141,9 +171,32 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
             </div>
           ) : null}
         </form>
-        <div className="zoom">
-          <button type="button" aria-label="Zoom in" onClick={() => mapController.zoomIn()}>+</button>
-          <button type="button" aria-label="Zoom out" onClick={() => mapController.zoomOut()}>−</button>
+        <div className="map-controls">
+          <div>
+            <span className="event-label">View</span>
+            <div className="segments" role="group" aria-label="Map view">
+              <button
+                type="button"
+                className={basemap === "street" ? "on" : ""}
+                aria-pressed={basemap === "street"}
+                onClick={() => setBasemap("street")}
+              >
+                Street
+              </button>
+              <button
+                type="button"
+                className={basemap === "satellite" ? "on" : ""}
+                aria-pressed={basemap === "satellite"}
+                onClick={() => setBasemap("satellite")}
+              >
+                Satellite
+              </button>
+            </div>
+          </div>
+          <div className="zoom">
+            <button type="button" aria-label="Zoom in" onClick={() => mapController.zoomIn()}>+</button>
+            <button type="button" aria-label="Zoom out" onClick={() => mapController.zoomOut()}>−</button>
+          </div>
         </div>
       </div>
       <div className="map-stage">
