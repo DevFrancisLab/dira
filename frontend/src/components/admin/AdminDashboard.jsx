@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { createAdminUser, getAdminStats, getAdminUsers, getAuditLog, setUserActive } from "../../services/api";
+import {
+  createAdminUser,
+  getAdminStats,
+  getAdminUsers,
+  getAuditLog,
+  getSecuritySettings,
+  saveSecuritySettings,
+  setUserActive,
+} from "../../services/api";
 import { useRouter } from "../../routing";
 
 const SECTIONS = [
@@ -16,6 +24,14 @@ const ACTION_LABELS = {
   user_reactivated: "Reactivated user",
   login_succeeded: "Signed in",
   login_failed: "Failed sign-in",
+  password_accepted: "Password accepted",
+  otp_requested: "Verification requested",
+  otp_sent: "Verification code sent",
+  otp_resent: "Verification code resent",
+  otp_verified: "Verification succeeded",
+  otp_failed: "Verification failed",
+  otp_expired: "Verification code expired",
+  security_settings_changed: "Verification settings changed",
 };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -297,20 +313,89 @@ function Users({ currentUserId }) {
 }
 
 function Security() {
+  const [emailOn, setEmailOn] = useState(null);
+  const [smsOn, setSmsOn] = useState(null);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSecuritySettings()
+      .then((payload) => {
+        if (cancelled) return;
+        setEmailOn(payload.email_otp_enabled);
+        setSmsOn(payload.sms_otp_enabled);
+      })
+      .catch((reason) => {
+        if (!cancelled) setError(reason.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function onSave(event) {
+    event.preventDefault();
+    if (pending || emailOn === null || smsOn === null) return;
+    setError("");
+    setSaved(false);
+    setPending(true);
+    try {
+      const payload = await saveSecuritySettings({
+        email_otp_enabled: emailOn,
+        sms_otp_enabled: smsOn,
+      });
+      setEmailOn(payload.email_otp_enabled);
+      setSmsOn(payload.sms_otp_enabled);
+      setSaved(true);
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const bothOff = emailOn === false && smsOn === false;
+
   return (
     <section className="page">
       <header className="page-header">
         <div>
           <h1>Security</h1>
-          <p>Current account controls.</p>
+          <p>Choose which verification methods users can use when signing in.</p>
         </div>
       </header>
-      <ul className="admin-notes">
-        <li>Public registration is closed. Only an administrator can create an account.</li>
-        <li>Sign-in uses a Django session. Passwords are hashed and are not stored in the browser.</li>
-        <li>Administrator actions and sign-in attempts are written to the audit log.</li>
-        <li>Email and SMS one-time codes are not enabled.</li>
-      </ul>
+      {emailOn === null && !error ? <p className="fine">Loading security settings…</p> : null}
+      {emailOn !== null ? (
+        <form className="security-settings" onSubmit={onSave}>
+          <div>
+            <span className="event-label">Email OTP</span>
+            <div className="segments" role="group" aria-label="Email OTP">
+              <button type="button" className={emailOn ? "on" : ""} aria-pressed={emailOn} onClick={() => { setEmailOn(true); setSaved(false); }}>On</button>
+              <button type="button" className={!emailOn ? "on" : ""} aria-pressed={!emailOn} onClick={() => { setEmailOn(false); setSaved(false); }}>Off</button>
+            </div>
+          </div>
+          <div>
+            <span className="event-label">SMS OTP</span>
+            <div className="segments" role="group" aria-label="SMS OTP">
+              <button type="button" className={smsOn ? "on" : ""} aria-pressed={smsOn} onClick={() => { setSmsOn(true); setSaved(false); }}>On</button>
+              <button type="button" className={!smsOn ? "on" : ""} aria-pressed={!smsOn} onClick={() => { setSmsOn(false); setSaved(false); }}>Off</button>
+            </div>
+          </div>
+          {bothOff ? (
+            <p className="auth-note" role="status">
+              Both verification methods are disabled. Users will sign in with email and password only.
+            </p>
+          ) : null}
+          {error ? <p className="auth-error" role="alert">{error}</p> : null}
+          {saved ? <p className="fine" role="status">Settings saved.</p> : null}
+          <button className="auth-submit admin-inline" type="submit" disabled={pending}>
+            {pending ? "Saving..." : "Save settings"}
+          </button>
+        </form>
+      ) : null}
+      {error && emailOn === null ? <p className="auth-error" role="alert">{error}</p> : null}
     </section>
   );
 }
@@ -360,7 +445,10 @@ function AuditLog() {
               ) : events.map((event) => (
                 <tr key={event.id}>
                   <td>{formatWhen(event.created_at)}</td>
-                  <td>{ACTION_LABELS[event.action] || event.action}</td>
+                  <td>
+                    {ACTION_LABELS[event.action] || event.action}
+                    {event.detail ? ` · ${event.detail}` : ""}
+                  </td>
                   <td>{event.actor_email || "—"}</td>
                   <td>{event.subject_email || "—"}</td>
                 </tr>

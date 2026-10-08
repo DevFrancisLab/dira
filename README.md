@@ -101,14 +101,39 @@ Create the first administrator from the repository root. The command prompts for
 | --- | --- | --- |
 | GET | `/api/auth/csrf/` | Issue the CSRF cookie and token |
 | POST | `/api/auth/register/` | Disabled. Returns 403 |
-| POST | `/api/auth/login/` | Start a session. Email is the identifier |
+| POST | `/api/auth/login/` | Check email and password. Starts a session only when no second factor is enabled |
+| POST | `/api/auth/send-otp/` | Send a code for a pending challenge by `email` or `sms` |
+| POST | `/api/auth/resend-otp/` | Replace the current code. Limited to one send each 60 seconds |
+| POST | `/api/auth/verify-otp/` | Accept the code and start the session |
 | POST | `/api/auth/logout/` | End the current session |
 | GET | `/api/auth/me/` | Return the signed-in user, or 401 |
+| GET | `/api/admin/security/` | Read email and SMS verification settings. Staff only |
+| PATCH | `/api/admin/security/` | Change those settings. Staff only |
 | GET | `/api/admin/stats/` | Account counts. Staff only |
 | GET | `/api/admin/users/` | List accounts. Staff only |
 | POST | `/api/admin/users/` | Create an account. Staff only |
 | PATCH | `/api/admin/users/<id>/` | Activate or deactivate an account. Staff only |
 | GET | `/api/admin/audit-log/` | Recent account events. Staff only |
+
+A fresh database enables email verification and leaves SMS verification off. An administrator changes that from the Security section. With both methods off, a correct password starts a session immediately. The one-time code is a 6-digit value, expires after 5 minutes, and allows 5 attempts. It is stored only as a hash.
+
+Email is sent through Django's email backend. Set the Zoho SMTP variables below to deliver real mail. When `EMAIL_HOST` is empty, the API writes the message to its console instead, and no message leaves the machine. SMS uses Africa's Talking. The React app never receives those credentials. Automated tests use Django's in-memory email backend and a fake SMS client.
+
+Copy `.env.example` to `.env` and fill in the values locally. `.env` is ignored by Git.
+
+```env
+EMAIL_HOST=smtp.zoho.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+EMAIL_USE_TLS=true
+DEFAULT_FROM_EMAIL=
+AT_USERNAME=
+AT_API_KEY=
+AT_SENDER_ID=
+```
+
+`AT_USERNAME=sandbox` uses Africa's Talking sandbox host. Any other username uses the live host.
 
 ## Tests
 

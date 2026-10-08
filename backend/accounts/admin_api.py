@@ -9,8 +9,8 @@ from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_http_methods
 
-from .audit import USER_CREATED, USER_DEACTIVATED, USER_REACTIVATED, record
-from .models import AuditEvent, User
+from .audit import SECURITY_SETTINGS_CHANGED, USER_CREATED, USER_DEACTIVATED, USER_REACTIVATED, record
+from .models import AuditEvent, SecuritySettings, User
 from .permissions import admin_required
 from .views import read_json, text_field
 
@@ -174,6 +174,44 @@ def user_detail(request, user_id):
     return JsonResponse(account_payload(user))
 
 
+def security_payload(row):
+    return {"email_otp_enabled": row.email_otp_enabled, "sms_otp_enabled": row.sms_otp_enabled}
+
+
+@admin_required
+@require_http_methods(["GET", "PATCH"])
+def security_settings(request):
+    row = SecuritySettings.load()
+    if request.method == "GET":
+        return JsonResponse(security_payload(row))
+
+    data = read_json(request)
+    if data is None:
+        return JsonResponse({"error": "Invalid JSON."}, status=400)
+    updates = {}
+    for key in ("email_otp_enabled", "sms_otp_enabled"):
+        if key not in data:
+            continue
+        if not isinstance(data[key], bool):
+            return JsonResponse({"error": f"{key} must be true or false."}, status=400)
+        updates[key] = data[key]
+    if not updates:
+        return JsonResponse({"error": "No security settings were provided."}, status=400)
+
+    changed = any(getattr(row, key) != value for key, value in updates.items())
+    for key, value in updates.items():
+        setattr(row, key, value)
+    if changed:
+        row.save(update_fields=list(updates))
+        record(
+            SECURITY_SETTINGS_CHANGED,
+            subject_email=request.user.email,
+            actor=request.user,
+            detail=f"email_otp={'on' if row.email_otp_enabled else 'off'};sms_otp={'on' if row.sms_otp_enabled else 'off'}",
+        )
+    return JsonResponse(security_payload(row))
+
+
 @admin_required
 @require_GET
 def audit_log(_request):
@@ -187,6 +225,7 @@ def audit_log(_request):
                     "actor_name": event.actor.name if event.actor_id else None,
                     "actor_email": event.actor.email if event.actor_id else None,
                     "subject_email": event.subject_email,
+                    "detail": event.detail,
                     "created_at": iso(event.created_at),
                 }
                 for event in events

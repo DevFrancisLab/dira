@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
@@ -61,7 +63,42 @@ class AuditEvent(models.Model):
     )
     action = models.CharField(max_length=64)
     subject_email = models.CharField(max_length=254, blank=True)
+    detail = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
     class Meta:
         ordering = ["-created_at", "-id"]
+
+
+class SecuritySettings(models.Model):
+    """One platform-wide second-factor configuration. The row id is always 1."""
+
+    email_otp_enabled = models.BooleanField(default=True)
+    sms_otp_enabled = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        if type(self).objects.filter(pk=1).exists():
+            self._state.adding = False
+            kwargs.pop("force_insert", None)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        row, _created = cls.objects.get_or_create(pk=1)
+        return row
+
+
+class OtpChallenge(models.Model):
+    """Pending sign-in. The one-time code is stored only as a password hash."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="otp_challenges")
+    method = models.CharField(max_length=8, blank=True)
+    code_hash = models.CharField(max_length=256, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    code_expires_at = models.DateTimeField(null=True, blank=True)
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    invalidated = models.BooleanField(default=False)

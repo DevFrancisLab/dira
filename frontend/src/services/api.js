@@ -46,6 +46,49 @@ export async function login(credentials) {
   return response.json();
 }
 
+async function readBody(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+function errorFrom(body) {
+  const error = new Error(body.error || "The request could not be completed.");
+  if (typeof body.retry_after === "number") error.retryAfter = body.retry_after;
+  return error;
+}
+
+export async function sendOtp(challengeId, method) {
+  const response = await postJson("/api/auth/send-otp/", { challenge_id: challengeId, method });
+  const body = await readBody(response);
+  if (!response.ok) throw errorFrom(body);
+  return body;
+}
+
+export async function resendOtp(challengeId) {
+  const response = await postJson("/api/auth/resend-otp/", { challenge_id: challengeId });
+  const body = await readBody(response);
+  if (!response.ok) throw errorFrom(body);
+  return body;
+}
+
+export async function verifyOtp(challengeId, code, method) {
+  const response = await postJson("/api/auth/verify-otp/", { challenge_id: challengeId, code, method });
+  const body = await readBody(response);
+  if (!response.ok) throw errorFrom(body);
+  return body;
+}
+
+export async function getSecuritySettings() {
+  return readJson(await fetch("/api/admin/security/", { credentials: "include" }));
+}
+
+export async function saveSecuritySettings(settings) {
+  return readJson(await sendJson("/api/admin/security/", "PATCH", settings));
+}
+
 export async function logout() {
   const response = await postJson("/api/auth/logout/", {});
   if (response.status === 401) return;

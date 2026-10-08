@@ -4,6 +4,25 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = BASE_DIR.parent
+
+
+def load_env_file(path):
+    """Load KEY=VALUE pairs that are not already set. Values are never logged."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        if not key or key in os.environ:
+            continue
+        os.environ[key] = value.strip().strip('"').strip("'")
+
+
+load_env_file(REPO_ROOT / ".env")
 
 
 def env_bool(name, default):
@@ -11,6 +30,16 @@ def env_bool(name, default):
     if raw is None or raw.strip() == "":
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_int(name, default):
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
 
 
 def env_list(name, default):
@@ -83,3 +112,17 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = False
 USE_TZ = True
+
+# Zoho SMTP when EMAIL_HOST is set. An empty host uses the console backend so
+# local development can complete email verification without stored credentials.
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "").strip()
+EMAIL_PORT = env_int("EMAIL_PORT", 587)
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "").strip() or EMAIL_HOST_USER or "dira@localhost"
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+    if EMAIL_HOST
+    else "django.core.mail.backends.console.EmailBackend"
+)
