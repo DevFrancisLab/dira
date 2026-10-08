@@ -1,0 +1,9 @@
+# Git detects which files are text. Text files are stored and checked out with
+# LF line endings on every machine; binary files are never converted.
+* text=auto eol=lf
+
+# The supplied data and the frozen documents must stay byte-identical on every
+# machine. "-text" stops Git from converting their line endings, whatever
+# core.autocrlf is set to.
+data/** -text -whitespace
+docs/** -text
