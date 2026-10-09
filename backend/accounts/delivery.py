@@ -1,11 +1,8 @@
 """Deliver a one-time code by email or SMS. Secrets stay in the environment."""
 
 import json
-import os
-import urllib.error
-import urllib.parse
-import urllib.request
 
+from africastalking.SMS import SMSService
 from django.conf import settings
 from django.core.mail import send_mail
 
@@ -41,7 +38,7 @@ def deliver_email(user, code):
 
 
 def deliver_sms(user, code):
-    destination = sms_destination(user.phone)
+    destination = normalize_number(user.phone)
     if not destination:
         raise DeliveryError("This account has no phone number.")
     message = (
@@ -51,59 +48,57 @@ def deliver_sms(user, code):
     send_sms(destination, message)
 
 
-def sms_destination(phone):
-    raw = (phone or "").strip()
+def normalize_number(number):
+    """Kenyan local numbers become E.164. 00254 is checked before a leading 0."""
+    raw = (number or "").strip()
+    for character in (" ", "-", "(", ")"):
+        raw = raw.replace(character, "")
     digits = "".join(character for character in raw if character.isdigit())
     if not digits:
         return ""
+    if digits.startswith("00254"):
+        return "+254" + digits[5:]
+    if digits.startswith("254"):
+        return "+" + digits
+    if digits.startswith("0"):
+        return "+254" + digits[1:]
     if raw.startswith("+"):
         return "+" + digits
-    return digits
-
-
-def sms_endpoint(username):
-    if username == "sandbox":
-        return "https://api.sandbox.africastalking.com/version1/messaging"
-    return "https://api.africastalking.com/version1/messaging"
+    return "+" + digits
 
 
 def send_sms(phone, message):
     if settings.EMAIL_BACKEND.endswith("locmem.EmailBackend"):
         raise DeliveryError("Live SMS is disabled during tests.")
-    username = os.environ.get("AT_USERNAME", "").strip()
-    api_key = os.environ.get("AT_API_KEY", "").strip()
-    sender = os.environ.get("AT_SENDER_ID", "").strip()
+    username = settings.AT_USERNAME
+    api_key = settings.AT_API_KEY
     if not username or not api_key:
         raise DeliveryError("SMS delivery is not configured.")
+    destination = normalize_number(phone)
+    if not destination:
+        raise DeliveryError("This account has no phone number.")
 
-    payload = {"username": username, "to": phone, "message": message}
-    if sender:
-        payload["from"] = sender
-    request = urllib.request.Request(
-        sms_endpoint(username),
-        data=urllib.parse.urlencode(payload).encode(),
-        method="POST",
-        headers={
-            "apiKey": api_key,
-            "Accept": "application/json",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-    )
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            raw = response.read()
-    except (urllib.error.URLError, TimeoutError):
+        response = SMSService(username, api_key).send(
+            message,
+            [destination],
+            sender_id=settings.AT_SENDER_ID or None,
+        )
+    except Exception:
         raise DeliveryError("SMS could not be sent.") from None
-
-    if not _sms_accepted(raw):
+    if not _sms_accepted(response):
         raise DeliveryError("SMS could not be sent.")
 
 
-def _sms_accepted(raw):
+def _sms_accepted(response):
+    if isinstance(response, (bytes, str)):
+        try:
+            response = json.loads(response)
+        except (TypeError, ValueError, UnicodeError):
+            return False
     try:
-        body = json.loads(raw.decode())
-        recipients = body["SMSMessageData"]["Recipients"]
-    except (KeyError, TypeError, ValueError, UnicodeError):
+        recipients = response["SMSMessageData"]["Recipients"]
+    except (KeyError, TypeError):
         return False
     if not recipients:
         return False

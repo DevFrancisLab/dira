@@ -126,3 +126,8 @@ EMAIL_BACKEND = (
     if EMAIL_HOST
     else "django.core.mail.backends.console.EmailBackend"
 )
+
+# Africa's Talking. Username "sandbox" selects the sandbox host inside the SDK.
+AT_USERNAME = os.environ.get("AT_USERNAME", "").strip()
+AT_API_KEY = os.environ.get("AT_API_KEY", "").strip()
+AT_SENDER_ID = os.environ.get("AT_SENDER_ID", "").strip()

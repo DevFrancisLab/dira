@@ -117,7 +117,7 @@ Create the first administrator from the repository root. The command prompts for
 
 A fresh database enables email verification and leaves SMS verification off. An administrator changes that from the Security section. With both methods off, a correct password starts a session immediately. The one-time code is a 6-digit value, expires after 5 minutes, and allows 5 attempts. It is stored only as a hash.
 
-Email is sent through Django's email backend. Set the Zoho SMTP variables below to deliver real mail. When `EMAIL_HOST` is empty, the API writes the message to its console instead, and no message leaves the machine. SMS uses Africa's Talking. The React app never receives those credentials. Automated tests use Django's in-memory email backend and a fake SMS client.
+Email is sent through Django's email backend. Set the Zoho SMTP variables below to deliver real mail. When `EMAIL_HOST` is empty, the API writes the message to its console instead, and no message leaves the machine. SMS uses the Africa's Talking Python client. Local numbers beginning with `0` are sent as `+254`. The React app never receives those credentials. Automated tests use Django's in-memory email backend and a fake SMS client.
 
 Copy `.env.example` to `.env` and fill in the values locally. `.env` is ignored by Git.
 
@@ -133,7 +133,7 @@ AT_API_KEY=
 AT_SENDER_ID=
 ```
 
-`AT_USERNAME=sandbox` uses Africa's Talking sandbox host. Any other username uses the live host.
+`AT_USERNAME=sandbox` uses the Africa's Talking sandbox host. Any other username uses the live host. `AT_SENDER_ID` is the registered sender passed to the client.
 
 ## Tests
 

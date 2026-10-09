@@ -183,7 +183,19 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.0
   font-size: 12px;
   color: var(--muted);
 }
-.legend span { display: flex; align-items: center; gap: 5px; }
+.legend { flex-wrap: wrap; }
+.legend button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 0;
+  padding: 2px 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.legend.filtering button:not(.on) { opacity: 0.4; }
+.legend button.on { color: var(--text); }
 .legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
 .search { position: relative; min-width: 240px; }

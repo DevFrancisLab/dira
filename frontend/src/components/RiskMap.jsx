@@ -7,6 +7,13 @@ import { metricOf } from "../format";
 import { mapController } from "../map/controller";
 
 const COLORS = { none: "#94A3B8", low: "#0F766E", mid: "#D97706", high: "#EA580C", severe: "#C8102E" };
+const LEVELS = [
+  ["none", "Not flagged"],
+  ["low", "Low"],
+  ["mid", "Moderate"],
+  ["high", "High"],
+  ["severe", "Severe"],
+];
 
 const BASEMAPS = {
   street: {
@@ -26,12 +33,12 @@ function displayCuts(losses) {
   return [at(0.25), at(0.5), at(0.75)];
 }
 
-function colorFor(loss, cuts) {
-  if (!(loss > 0)) return COLORS.none;
-  if (loss <= cuts[0]) return COLORS.low;
-  if (loss <= cuts[1]) return COLORS.mid;
-  if (loss <= cuts[2]) return COLORS.high;
-  return COLORS.severe;
+function bandFor(loss, cuts) {
+  if (!(loss > 0)) return "none";
+  if (loss <= cuts[0]) return "low";
+  if (loss <= cuts[1]) return "mid";
+  if (loss <= cuts[2]) return "high";
+  return "severe";
 }
 
 export function RiskMap({ data, tier, assumption, selectedId, highlighted, visible }) {
@@ -41,6 +48,8 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
   const [query, setQuery] = useState("");
   const [openSearch, setOpenSearch] = useState(false);
   const [basemap, setBasemap] = useState("street");
+  const [band, setBand] = useState("");
+  const framedBand = useRef("");
   const basemapRef = useRef(basemap);
   const baseLayers = useRef(null);
   basemapRef.current = basemap;
@@ -110,22 +119,38 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
   }, [selectedId, byId]);
 
   useEffect(() => {
-    if (!mapRef.current || !highlighted.length) return;
+    if (!mapRef.current || !highlighted.length || band) return;
     const points = highlighted.map((id) => byId.get(id)).filter(Boolean);
     if (points.length === 1) mapController.flyTo(points[0].lat, points[0].lon, 15);
     else mapRef.current.fitBounds(points.map((building) => [building.lat, building.lon]), { padding: [48, 48] });
-  }, [highlighted, byId]);
+  }, [highlighted, byId, band]);
 
   useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
     const losses = data.buildings.map((building) => metricOf(building, assumption, tier).loss_kes);
     const cuts = displayCuts(losses);
     const highlightSet = new Set(highlighted);
+    const visibleBuildings = [];
+    if (band && selectedId) {
+      const current = byId.get(selectedId);
+      if (current && bandFor(metricOf(current, assumption, tier).loss_kes, cuts) !== band) {
+        mapController.selectBuilding("");
+      }
+    }
     for (const building of data.buildings) {
       const loss = metricOf(building, assumption, tier).loss_kes;
+      const level = bandFor(loss, cuts);
       const active = building.loc_id === selectedId || highlightSet.has(building.loc_id);
-      const fill = colorFor(loss, cuts);
       const marker = markers.current.get(building.loc_id);
       if (!marker) continue;
+      if (band && level !== band) {
+        if (marker._map) map.removeLayer(marker);
+        continue;
+      }
+      visibleBuildings.push(building);
+      if (!marker._map) marker.addTo(map);
+      const fill = COLORS[level];
       marker.setStyle({
         radius: active ? 8 : loss > 0 ? 5.5 : 4,
         color: active ? "#003B70" : fill,
@@ -135,7 +160,13 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
       });
       if (loss > 0 || active) marker.bringToFront();
     }
-  }, [data, tier, assumption, selectedId, highlighted]);
+    const frame = `${band}|${tier}|${assumption}`;
+    if (band && visibleBuildings.length > 1 && framedBand.current !== frame) {
+      framedBand.current = frame;
+      map.fitBounds(visibleBuildings.map((building) => [building.lat, building.lon]), { padding: [48, 48] });
+    }
+    if (!band) framedBand.current = "";
+  }, [data, tier, assumption, selectedId, highlighted, band, byId]);
 
   const results = searchItems(data, query);
 
@@ -201,12 +232,19 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
       </div>
       <div className="map-stage">
         <div ref={mapNode} className="map-canvas" />
-        <div className="legend">
-          <span><i style={{ background: COLORS.none }} /> Not flagged</span>
-          <span><i style={{ background: COLORS.low }} /> Low</span>
-          <span><i style={{ background: COLORS.mid }} /> Moderate</span>
-          <span><i style={{ background: COLORS.high }} /> High</span>
-          <span><i style={{ background: COLORS.severe }} /> Severe</span>
+        <div className={band ? "legend filtering" : "legend"} role="group" aria-label="Severity filter">
+          {LEVELS.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={band === id ? "on" : ""}
+              aria-pressed={band === id}
+              onClick={() => toggleBand(id)}
+            >
+              <i style={{ background: COLORS[id] }} />
+              {label}
+            </button>
+          ))}
         </div>
         {selected ? (
           <BuildingRiskCard
@@ -219,6 +257,10 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
       </div>
     </section>
   );
+
+  function toggleBand(id) {
+    setBand((current) => (current === id ? "" : id));
+  }
 
   function choose(item) {
     setOpenSearch(false);
