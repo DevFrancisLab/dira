@@ -2,11 +2,54 @@
 
 Nairobi urban flood catastrophe model for the Kenya Re AI4Insurance Hackathon 2026 (Team A).
 
-The application reads a synthetic building portfolio, runs a deterministic loss engine, and serves the results through a Django API to a React interface. Figures on screen are copied from the engine.
+The application reads a synthetic building portfolio, runs a deterministic loss engine, and serves the results through a Django API to a React interface. Figures on screen are copied from the engine. The CAT Copilot answers questions through Ollama serving Qwen on Kaggle.
 
 ```
 Hazard → Exposure → Vulnerability → Financial loss → Portfolio risk → Review
 ```
+
+## Workflow
+
+A person signs in, reads the engine results, and can ask the Copilot to move through the same screens. Loss numbers stay in the engine. The language model explains those numbers and does not calculate them.
+
+```mermaid
+flowchart TD
+  signin[Sign in with email and password]
+  factor{Second factor on?}
+  code[One-time code by email or SMS]
+  session[Django session]
+  engine[Loss engine]
+  screens[Overview, map, exposure, loss, reports]
+  question[Ask a question]
+  qwen[Ollama Qwen on Kaggle]
+  upload[Upload CSV, Excel, PDF, or image]
+  readable{File has locations?}
+  placed[Locations on the map and Exposure]
+  sample[Sample Nairobi locations]
+  extreme[Ask for the highest-risk buildings]
+  framed[Extreme tier, highest-loss buildings framed]
+  person{Person approves the PDF?}
+  pdf[Download the PDF]
+  held[No PDF is created]
+
+  signin --> factor
+  factor -->|Yes| code --> session
+  factor -->|No| session
+  session --> engine --> screens
+  screens --> question --> qwen --> screens
+  screens --> upload --> readable
+  readable -->|Yes| placed --> screens
+  readable -->|No| sample --> screens
+  screens --> extreme --> framed --> person
+  person -->|Approve| pdf
+  person -->|Reject| held
+```
+
+1. **Sign in.** Email and password are checked first. When email or SMS verification is on, the session starts only after the one-time code is accepted. SMS for the administrator goes to the phone number stored on that account.
+2. **Open the portfolio.** The API runs the loss engine and the interface shows Overview, the risk map, Exposure, Loss Analysis, and Reports. Street and satellite basemaps, and the severity filter, are on the map.
+3. **Ask the Copilot.** A signed-in question is sent to Ollama on Kaggle, together with the engine figures for the current event. The answer comes back into the chat. Plain requests such as “go to Reports” or “zoom in” run in the interface without waiting on the model.
+4. **Upload an exposure file.** CSV and Excel files with coordinates are read and drawn on the map and listed under Exposure. A PDF is scanned for written coordinates. An image, or any file that cannot be read, still updates the screen with sample Nairobi locations and a note that they are samples.
+5. **Review the highest risk.** The prompt “Show me the highest-risk buildings in Nairobi under the extreme scenario…” sets the extreme tier, frames the buildings with the largest engine loss, and explains the susceptibility proxy, damage ratio, and loss. The PDF is created only after **Approve and download**. **Reject** leaves it unapproved.
 
 ## What the numbers mean
 
@@ -87,6 +130,9 @@ The Vite dev server proxies `/api` to the Django process, so the browser only ne
 | GET | `/api/buildings/<loc_id>/` | One building |
 | GET | `/api/loss-curve/?assumption=reference` | Loss by assumed return period |
 | GET | `/api/hotspots/` | Named locations for the map |
+| POST | `/api/copilot/` | Signed-in question. Ordinary answers come from Ollama. The extreme-tier risk brief is built from the engine and includes an approval step |
+| POST | `/api/copilot/ingest/` | Read an uploaded CSV, Excel file, PDF, or image |
+| POST | `/api/copilot/report/` | Download the extreme-tier PDF after `approved` is true |
 
 `assumption` is one of `reference`, `low`, `high`, or `reference_rcc80`.
 
@@ -132,11 +178,18 @@ DEFAULT_FROM_EMAIL=
 AT_USERNAME=
 AT_API_KEY=
 AT_SENDER_ID=
+
+OLLAMA_BASE_URL=
+OLLAMA_USERNAME=
+OLLAMA_PASSWORD=
+OLLAMA_MODEL=
 ```
 
 `AT_USERNAME=sandbox` uses the Africa's Talking sandbox host. Any other username uses the live host. `AT_SENDER_ID` is the registered sender passed to the client.
 
-The CAT Copilot sends a signed-in user's question to Ollama at `OLLAMA_BASE_URL` (the HTTPS address printed by Kaggle), with `OLLAMA_USERNAME`, `OLLAMA_PASSWORD`, and `OLLAMA_MODEL`. Those values stay in `.env`. The reply is grounded in the current engine figures for the selected event.
+`OLLAMA_BASE_URL` is the HTTPS address printed by the Kaggle notebook. `OLLAMA_USERNAME` and `OLLAMA_PASSWORD` are the tunnel login. `OLLAMA_MODEL` is the Qwen tag Ollama is serving. All four stay in `.env`.
+
+The Copilot uses that Ollama server, running Qwen on Kaggle, for privacy and cost. Questions and the engine figures that accompany them go to a model the team hosts on the notebook, over the tunnel, and the notebook’s GPU time replaces a paid language-model API. The extreme-tier brief and its PDF do not call the model: those figures are taken from the loss engine, and a person approves the file before it is created.
 
 ## Tests
 
