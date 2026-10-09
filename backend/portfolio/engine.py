@@ -21,19 +21,12 @@ if str(ROOT) not in sys.path:
 
 from loss_engine.aggregation import aggregate  # noqa: E402
 from loss_engine.config import default_config  # noqa: E402
+from loss_engine.ep_curve import default_return_periods, ep_points  # noqa: E402
 from loss_engine.validation import load_and_validate_exposure  # noqa: E402
 
 EXPOSURE = ROOT / "data" / "exposure_nairobi_with_hazard.csv"
 HOTSPOTS = ROOT / "data" / "nairobi_hotspots_geocoded.csv"
 
-# D-004 display labels. Not derived from the rasters and not used by the engine.
-ASSUMED_RETURN_PERIOD_YEARS = {
-    "extreme": 10,
-    "severe": 25,
-    "moderate": 50,
-    "occasional": 100,
-    "common": 250,
-}
 TIER_LABELS = {
     "extreme": "Extreme",
     "severe": "Severe",
@@ -89,6 +82,10 @@ def _build() -> dict:
     exposure = load_and_validate_exposure(EXPOSURE)
     config = default_config()
     portfolio = aggregate(config, exposure)
+    mapping = default_return_periods()
+    curve = ep_points(portfolio.tier_summary, mapping)
+    year_by_tier = dict(zip(mapping.tiers, mapping.return_periods_years))
+    aep_by_tier = dict(zip(mapping.tiers, mapping.annual_exceedance_probabilities))
     if not portfolio.output_checks.passed:
         raise RuntimeError("Output checks failed.")
 
@@ -160,7 +157,8 @@ def _build() -> dict:
         raise RuntimeError("unexpected building or hotspot count")
 
     return {
-        "source": "loss_engine.aggregate",
+        "source": "loss_engine.ep_curve",
+        "mapping_id": mapping.mapping_id,
         "parameter_set_id": config.parameter_set_id,
         "exposure_file": exposure.filename,
         "honesty": [
@@ -174,8 +172,9 @@ def _build() -> dict:
             {
                 "id": tier,
                 "label": TIER_LABELS[tier],
-                "assumed_return_period_years": ASSUMED_RETURN_PERIOD_YEARS[tier],
-                "return_period_basis": "D-004 assumption",
+                "assumed_return_period_years": year_by_tier[tier],
+                "annual_exceedance_probability": aep_by_tier[tier],
+                "return_period_basis": "D-004 provisional assumption",
                 "note": TIER_NOTES[tier],
             }
             for tier in config.tiers
@@ -193,6 +192,9 @@ def _build() -> dict:
         "tier_summary": tier_summary,
         "class_summary": class_summary,
         "hotspots": hotspots,
+        "ep_points": [
+            {key: json_value(value) for key, value in row.items()} for row in curve.to_dict(orient="records")
+        ],
     }
 
 

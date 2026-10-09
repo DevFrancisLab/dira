@@ -1,7 +1,11 @@
 """API views. Figures are copied from the loss engine payload."""
 
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 
+from accounts.views import read_json
+
+from .copilot import CopilotError, clean_history, reply
 from .engine import get_payload
 
 
@@ -23,26 +27,39 @@ def building_detail(_request, loc_id):
 def loss_curve(request):
     payload = get_payload()
     assumption = request.GET.get("assumption", "reference")
-    summary = payload["tier_summary"].get(assumption)
-    if summary is None:
+    if not any(item["id"] == assumption for item in payload["scenarios"]):
         return JsonResponse({"detail": "Unknown damage assumption."}, status=404)
-    points = []
-    for tier in payload["tiers"]:
-        row = summary[tier["id"]]
-        points.append(
-            {
-                "tier": tier["id"],
-                "label": tier["label"],
-                "assumed_return_period_years": tier["assumed_return_period_years"],
-                "return_period_basis": tier["return_period_basis"],
-                "portfolio_loss_kes": row["portfolio_loss_kes"],
-                "loss_pct_portfolio": row["loss_pct_portfolio"],
-                "affected_buildings": row["affected_buildings"],
-                "tiv_kes": row["tiv_kes"],
-            }
-        )
+    points = [point for point in payload["ep_points"] if point["scenario_id"] == assumption]
     return JsonResponse({"assumption": assumption, "points": points})
 
 
 def hotspots(_request):
     return JsonResponse({"hotspots": get_payload()["hotspots"]})
+
+
+@require_POST
+def copilot(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    data = read_json(request)
+    if data is None:
+        return JsonResponse({"error": "Invalid JSON."}, status=400)
+    message = data.get("message", "")
+    if not isinstance(message, str) or not message.strip():
+        return JsonResponse({"error": "Enter a message."}, status=400)
+    tier = data.get("tier", "")
+    assumption = data.get("assumption", "")
+    selected_id = data.get("selected_id", "")
+    if not isinstance(tier, str) or not isinstance(assumption, str) or not isinstance(selected_id, str):
+        return JsonResponse({"error": "Invalid JSON."}, status=400)
+    try:
+        text, actions = reply(
+            message.strip()[:2000],
+            clean_history(data.get("history")),
+            tier.strip(),
+            assumption.strip(),
+            selected_id.strip(),
+        )
+    except CopilotError as exc:
+        return JsonResponse({"error": exc.message}, status=exc.status)
+    return JsonResponse({"reply": text, "actions": actions})

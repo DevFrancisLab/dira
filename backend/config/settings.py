@@ -131,3 +131,9 @@ EMAIL_BACKEND = (
 AT_USERNAME = os.environ.get("AT_USERNAME", "").strip()
 AT_API_KEY = os.environ.get("AT_API_KEY", "").strip()
 AT_SENDER_ID = os.environ.get("AT_SENDER_ID", "").strip()
+
+# Ollama behind the Kaggle ngrok tunnel. The password stays in the environment.
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "").strip().rstrip("/")
+OLLAMA_USERNAME = os.environ.get("OLLAMA_USERNAME", "").strip()
+OLLAMA_PASSWORD = os.environ.get("OLLAMA_PASSWORD", "").strip()
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "").strip()

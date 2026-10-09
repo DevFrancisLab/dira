@@ -52,6 +52,7 @@ export function LossCurve({ data, assumption, tier, tall = false }) {
             onClick={() => mapController.setTier(point.id)}
           >
             <span>{point.assumed_return_period_years}Y</span>
+            <span>AEP {Number(point.annual_exceedance_probability).toFixed(3)}</span>
             <strong>{kesExact(point.loss)}</strong>
           </button>
         ))}

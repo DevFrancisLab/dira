@@ -102,12 +102,11 @@ export default function App() {
         ) : null}
         <Copilot
           section={page}
-          hidden={page === "reports"}
           data={data}
           tier={tier}
           assumption={assumption}
           selected={selected}
-          onOpenMap={() => setPage("map")}
+          onNavigate={setPage}
         />
       </main>
     </div>

@@ -19,7 +19,8 @@ The hazard layers are a susceptibility proxy. They are not flood depths, probabi
 ```
 backend/          Django API (portfolio, buildings, loss curve, hotspots)
 frontend/         React application (Vite)
-loss_engine/      Validation, configuration, vulnerability, building loss, aggregation
+loss_engine/      Validation through aggregation, EP points, run record, and exposure workflow
+adapter/          Exposure-file adapter for the loss engine
 data/             Organizer source data, unchanged
 docs/             Frozen specification, decision record, and reference notes
 tests/            Loss-engine tests
@@ -134,6 +135,8 @@ AT_SENDER_ID=
 ```
 
 `AT_USERNAME=sandbox` uses the Africa's Talking sandbox host. Any other username uses the live host. `AT_SENDER_ID` is the registered sender passed to the client.
+
+The CAT Copilot sends a signed-in user's question to Ollama at `OLLAMA_BASE_URL` (the HTTPS address printed by Kaggle), with `OLLAMA_USERNAME`, `OLLAMA_PASSWORD`, and `OLLAMA_MODEL`. Those values stay in `.env`. The reply is grounded in the current engine figures for the selected event.
 
 ## Tests
 

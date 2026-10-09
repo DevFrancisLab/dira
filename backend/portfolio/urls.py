@@ -8,4 +8,5 @@ urlpatterns = [
     path("buildings/<str:loc_id>/", views.building_detail),
     path("loss-curve/", views.loss_curve),
     path("hotspots/", views.hotspots),
+    path("copilot/", views.copilot),
 ]

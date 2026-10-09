@@ -127,3 +127,16 @@ export async function loadPortfolio() {
   }
   return response.json();
 }
+
+export async function askCopilot(message, history, tier, assumption, selectedId) {
+  const response = await postJson("/api/copilot/", {
+    message,
+    history,
+    tier,
+    assumption,
+    selected_id: selectedId || "",
+  });
+  const body = await readBody(response);
+  if (!response.ok) throw errorFrom(body);
+  return { reply: body.reply, actions: Array.isArray(body.actions) ? body.actions : [] };
+}
