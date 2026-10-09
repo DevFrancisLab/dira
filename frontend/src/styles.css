@@ -197,6 +197,10 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.0
 .legend.filtering button:not(.on) { opacity: 0.4; }
 .legend button.on { color: var(--text); }
 .legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.legend .uploaded { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+.upload-block { margin-top: 14px; }
+.upload-block h3 { font-size: 14px; margin-bottom: 4px; }
+.upload-block p { color: var(--muted); margin-bottom: 8px; }
 
 .search { position: relative; min-width: 240px; }
 .search input, .composer input {
@@ -261,8 +265,8 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.0
   letter-spacing: 0.02em;
 }
 .copilot-panel {
-  width: 320px;
-  max-height: min(420px, calc(100vh - 240px));
+  width: 380px;
+  max-height: min(560px, calc(100vh - 140px));
   display: flex;
   flex-direction: column;
   background: var(--white);
@@ -286,10 +290,15 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.0
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px;
-  max-height: 180px;
+  max-height: 320px;
   background: var(--bg);
 }
 .msg { background: white; border: 1px solid var(--line); padding: 8px 10px; font-size: 13px; }
+.msg p { margin: 0; }
+.review-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.review-actions p { flex-basis: 100%; color: var(--muted); }
+.review-actions button { padding: 6px 8px; border: 1px solid var(--line); background: white; font-size: 12px; }
+.review-actions button:first-of-type { background: var(--blue); color: white; border-color: var(--blue); }
 .msg.user { align-self: flex-end; background: var(--blue); color: white; border-color: var(--blue); }
 .prompts { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 10px; background: var(--bg); }
 .prompts button, .mic {

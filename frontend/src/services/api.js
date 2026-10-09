@@ -128,6 +128,49 @@ export async function loadPortfolio() {
   return response.json();
 }
 
+export async function ingestDocument(file) {
+  const csrfToken = await getCsrfToken();
+  const body = new FormData();
+  body.append("file", file);
+  const response = await fetch("/api/copilot/ingest/", {
+    method: "POST",
+    credentials: "include",
+    headers: { "X-CSRFToken": csrfToken },
+    body,
+  });
+  const payload = await readBody(response);
+  if (!response.ok) {
+    const error = errorFrom(payload);
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
+}
+
+export async function downloadRiskReport(review) {
+  const csrfToken = await getCsrfToken();
+  const response = await fetch("/api/copilot/report/", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": csrfToken,
+    },
+    body: JSON.stringify({
+      approved: true,
+      tier: review.tier,
+      assumption: review.assumption,
+    }),
+  });
+  if (!response.ok) {
+    const payload = await readBody(response);
+    const error = errorFrom(payload);
+    error.status = response.status;
+    throw error;
+  }
+  return response.blob();
+}
+
 export async function askCopilot(message, history, tier, assumption, selectedId) {
   const response = await postJson("/api/copilot/", {
     message,
@@ -138,5 +181,9 @@ export async function askCopilot(message, history, tier, assumption, selectedId)
   });
   const body = await readBody(response);
   if (!response.ok) throw errorFrom(body);
-  return { reply: body.reply, actions: Array.isArray(body.actions) ? body.actions : [] };
+  return {
+    reply: body.reply,
+    actions: Array.isArray(body.actions) ? body.actions : [],
+    review: body.review && body.review.required ? body.review : null,
+  };
 }

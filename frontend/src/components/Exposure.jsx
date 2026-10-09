@@ -1,7 +1,7 @@
 import { PageHeader } from "./PageHeader";
 import { classLabel, kesCompact, kesExact, tierStats } from "../format";
 
-export function Exposure({ data, assumption, tier }) {
+export function Exposure({ data, assumption, tier, uploads = [] }) {
   const stats = tierStats(data, assumption, tier);
   const classes = data.class_summary[assumption][tier];
   const largest = [...data.buildings].sort((a, b) => b.tiv_kes - a.tiv_kes).slice(0, 8);
@@ -65,6 +65,35 @@ export function Exposure({ data, assumption, tier }) {
           </table>
         </div>
       </div>
+      {uploads.length ? (
+        <div className="panel">
+          <h2>Uploaded documents</h2>
+          {uploads.map((upload, index) => (
+            <div key={`${upload.filename}-${index}`} className="upload-block">
+              <h3>{upload.filename}</h3>
+              <p>{upload.summary}</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Location</th>
+                    <th>Class</th>
+                    <th>TIV</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(upload.rows || []).map((row) => (
+                    <tr key={row.loc_id}>
+                      <td>{row.loc_id}</td>
+                      <td>{classLabel(row.housing_class)}</td>
+                      <td>{row.tiv_kes == null ? "—" : kesCompact(row.tiv_kes)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -137,3 +137,7 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "").strip().rstrip("/")
 OLLAMA_USERNAME = os.environ.get("OLLAMA_USERNAME", "").strip()
 OLLAMA_PASSWORD = os.environ.get("OLLAMA_PASSWORD", "").strip()
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "").strip()
+
+# Copilot uploads: CSV, spreadsheets, PDFs, and images.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024

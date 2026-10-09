@@ -13,7 +13,16 @@ function hasWord(text, phrase) {
   return pattern.test(text);
 }
 
+export function isRiskBrief(message) {
+  const text = String(message || "").toLowerCase().replace(/\s+/g, " ").trim();
+  return /\b(highest[-\s]?risk|most at risk)\b/.test(text) && /\bextreme\b/.test(text);
+}
+
+const TIERS = ["extreme", "severe", "moderate", "occasional", "common"];
+const SCENARIOS = ["reference", "low", "high", "reference_rcc80"];
+
 export function commandActions(message, hotspots) {
+  if (isRiskBrief(message)) return [];
   const text = message.toLowerCase().replace(/\s+/g, " ").trim();
   const actions = [];
   if (/\b(go to|open|show|take me|switch to|navigate)\b/.test(text)) {
@@ -77,6 +86,13 @@ export function applyCopilotActions(actions, { onNavigate, hotspots }) {
       if (!hotspot) continue;
       onNavigate("map");
       window.setTimeout(() => mapController.flyTo(hotspot.lat, hotspot.lon, 14), 50);
+    } else if (action.name === "set_tier" && TIERS.includes(action.tier)) {
+      mapController.setTier(action.tier);
+    } else if (action.name === "set_scenario" && SCENARIOS.includes(action.scenario)) {
+      mapController.setScenario(action.scenario);
+    } else if (action.name === "highlight" && Array.isArray(action.ids)) {
+      const ids = action.ids.filter((id) => typeof id === "string" && id);
+      if (ids.length) mapController.highlightBuildings(ids);
     }
   }
 }

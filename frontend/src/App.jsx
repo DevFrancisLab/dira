@@ -21,6 +21,7 @@ export default function App() {
   const [assumption, setAssumption] = useState("reference");
   const [selectedId, setSelectedId] = useState(null);
   const [highlighted, setHighlighted] = useState([]);
+  const [uploads, setUploads] = useState([]);
 
   useEffect(() => {
     loadPortfolio().then(setData).catch((reason) => setError(reason.message));
@@ -59,6 +60,11 @@ export default function App() {
     }
   }
 
+  function addUpload(result) {
+    setUploads((current) => [...current, result]);
+    setPage(result.page === "exposure" ? "exposure" : "map");
+  }
+
   const selected = useMemo(() => {
     if (!data || !selectedId) return null;
     return data.buildings.find((building) => building.loc_id === selectedId) || null;
@@ -90,12 +96,15 @@ export default function App() {
             selectedId={selectedId}
             highlighted={highlighted}
             visible={page === "map"}
+            uploads={uploads}
           />
         </div>
         {page !== "map" ? (
           <div className="page-layer">
             {page === "overview" ? <Overview data={data} tier={tier} assumption={assumption} /> : null}
-            {page === "exposure" ? <Exposure data={data} tier={tier} assumption={assumption} /> : null}
+            {page === "exposure" ? (
+              <Exposure data={data} tier={tier} assumption={assumption} uploads={uploads} />
+            ) : null}
             {page === "loss" ? <LossAnalysis data={data} tier={tier} assumption={assumption} /> : null}
             {page === "reports" ? <Reports data={data} tier={tier} assumption={assumption} /> : null}
           </div>
@@ -107,6 +116,7 @@ export default function App() {
           assumption={assumption}
           selected={selected}
           onNavigate={setPage}
+          onIngested={addUpload}
         />
       </main>
     </div>

@@ -9,4 +9,6 @@ urlpatterns = [
     path("loss-curve/", views.loss_curve),
     path("hotspots/", views.hotspots),
     path("copilot/", views.copilot),
+    path("copilot/ingest/", views.ingest),
+    path("copilot/report/", views.risk_report),
 ]

@@ -41,10 +41,11 @@ function bandFor(loss, cuts) {
   return "severe";
 }
 
-export function RiskMap({ data, tier, assumption, selectedId, highlighted, visible }) {
+export function RiskMap({ data, tier, assumption, selectedId, highlighted, visible, uploads = [] }) {
   const mapNode = useRef(null);
   const mapRef = useRef(null);
   const markers = useRef(new Map());
+  const uploadLayer = useRef(null);
   const [query, setQuery] = useState("");
   const [openSearch, setOpenSearch] = useState(false);
   const [basemap, setBasemap] = useState("street");
@@ -111,6 +112,41 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
   }, [visible]);
 
   useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return undefined;
+    if (uploadLayer.current) {
+      map.removeLayer(uploadLayer.current);
+      uploadLayer.current = null;
+    }
+    const group = L.layerGroup();
+    for (const batch of uploads) {
+      for (const row of batch.rows || []) {
+        if (row.lat == null || row.lon == null) continue;
+        const marker = L.circleMarker([row.lat, row.lon], {
+          radius: 8,
+          weight: 2,
+          color: "#ffffff",
+          fillColor: "#003B70",
+          fillOpacity: 0.95,
+        });
+        marker.bindTooltip(`${row.loc_id} · ${batch.filename || "Upload"}`);
+        marker.addTo(group);
+      }
+    }
+    group.addTo(map);
+    uploadLayer.current = group;
+    const latest = uploads[uploads.length - 1];
+    const points = (latest && latest.rows ? latest.rows : []).filter((row) => row.lat != null && row.lon != null);
+    if (points.length) {
+      map.fitBounds(
+        points.map((row) => [row.lat, row.lon]),
+        { padding: [48, 48], maxZoom: 14 },
+      );
+    }
+    return undefined;
+  }, [uploads]);
+
+  useEffect(() => {
     if (!mapRef.current || !selectedId) return;
     const building = byId.get(selectedId);
     if (!building) return;
@@ -119,11 +155,13 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
   }, [selectedId, byId]);
 
   useEffect(() => {
-    if (!mapRef.current || !highlighted.length || band) return;
+    if (!mapRef.current || !highlighted.length || band || !visible) return;
+    mapRef.current.invalidateSize();
     const points = highlighted.map((id) => byId.get(id)).filter(Boolean);
+    if (!points.length) return;
     if (points.length === 1) mapController.flyTo(points[0].lat, points[0].lon, 15);
-    else mapRef.current.fitBounds(points.map((building) => [building.lat, building.lon]), { padding: [48, 48] });
-  }, [highlighted, byId, band]);
+    else mapRef.current.fitBounds(points.map((building) => [building.lat, building.lon]), { padding: [64, 64], maxZoom: 15 });
+  }, [highlighted, byId, band, visible]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -233,6 +271,12 @@ export function RiskMap({ data, tier, assumption, selectedId, highlighted, visib
       <div className="map-stage">
         <div ref={mapNode} className="map-canvas" />
         <div className={band ? "legend filtering" : "legend"} role="group" aria-label="Severity filter">
+          {uploads.length ? (
+            <span className="uploaded">
+              <i style={{ background: "#003B70" }} />
+              Uploaded
+            </span>
+          ) : null}
           {LEVELS.map(([id, label]) => (
             <button
               key={id}

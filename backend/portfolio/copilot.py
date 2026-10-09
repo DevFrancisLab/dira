@@ -191,25 +191,20 @@ def reply(message, history, tier, assumption, selected_id):
         raise CopilotError("The language model is not configured.", status=503)
     system = (
         "You are the CAT Copilot for Dira, a Nairobi urban flood prototype. "
-        "Answer only from the figures below. If a figure is not listed, say you do not have it. "
+        "Answer in one or two plain sentences. Use only the figures below and copy numbers exactly. "
+        "If a figure is not listed, say you do not have it. "
         "The hazard is a susceptibility proxy, not a flood depth or a modelled flood event. "
         "Return-period years are provisional D-004 labels, not measured frequencies. "
         "The portfolio is synthetic and the damage parameter H is an assumption. "
-        "Be concise. "
-        "When the user asks you to operate the app, reply with one JSON object and no other text: "
-        '{"reply":"short confirmation","actions":[{"name":"navigate","page":"reports"}]}. '
-        "Allowed actions are navigate with page overview, map, exposure, loss, or reports; "
-        "zoom_in; zoom_out; and fly_to with a hotspot name from the list below. "
-        "For an ordinary question, actions must be an empty array.\n\n"
+        "Do not return JSON.\n\n"
         + briefing(tier, assumption, selected_id)
     )
     messages = [{"role": "system", "content": system}, *history, {"role": "user", "content": message}]
-    spoken, model_actions = parse_agent(ask_ollama(messages))
     commands = command_actions(message)
-    actions = merge_actions(commands, model_actions)
     if commands:
-        spoken = _confirmation(actions)
-    return spoken, actions
+        return _confirmation(commands), commands
+    spoken, _model_actions = parse_agent(ask_ollama(messages))
+    return spoken, []
 
 
 def _confirmation(actions):
@@ -233,10 +228,15 @@ def _confirmation(actions):
     return " ".join(parts)
 
 
-def ask_ollama(messages):
+def ask_ollama(messages, timeout=TIMEOUT_SECONDS):
     url = settings.OLLAMA_BASE_URL.rstrip("/") + "/api/chat"
     payload = json.dumps(
-        {"model": settings.OLLAMA_MODEL, "messages": messages, "stream": False}
+        {
+            "model": settings.OLLAMA_MODEL,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": 0.2, "num_predict": 180},
+        }
     ).encode()
     token = base64.b64encode(
         f"{settings.OLLAMA_USERNAME}:{settings.OLLAMA_PASSWORD}".encode()
@@ -253,7 +253,7 @@ def ask_ollama(messages):
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = response.read()
     except urllib.error.HTTPError as exc:
         status = 401 if exc.code == 401 else 502
@@ -263,7 +263,7 @@ def ask_ollama(messages):
             else "The language model could not answer."
         )
         raise CopilotError(message, status=status) from None
-    except (urllib.error.URLError, TimeoutError):
+    except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
         raise CopilotError("The language model could not be reached.", status=502) from None
     return _message_text(raw)
 
